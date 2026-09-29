@@ -1,0 +1,22 @@
+services:
+  # Только API-приложение (uvicorn). БД — локальный PostgreSQL на хосте
+  # (подключаемся через host.docker.internal, см. extra_hosts ниже).
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_MODE=postgres
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-10qwqw10qwqw}
+      - DB_NAME=task_manager
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your-key-here}
+    extra_hosts:
+      # host.docker.internal указывает на хост-машину (Windows/Mac/Linux)
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
