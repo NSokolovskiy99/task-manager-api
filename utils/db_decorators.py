@@ -55,8 +55,9 @@ def db_transaction(method):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Сбой при работе с базой данных",
             ) from e
-        except HTTPException:     # Откатываем сессию (чтобы очистить «грязные» объекты),
-            raise                 # а затем пробрасываем ручную ошибку добавленную в методах                   
+        except HTTPException:         # Откатываем сессию (чтобы очистить «грязные» объекты),
+            await session.rollback()  # а затем пробрасываем ручную ошибку добавленную в методах
+            raise                                    
         except Exception as e:
             await session.rollback()
             logger.critical(
