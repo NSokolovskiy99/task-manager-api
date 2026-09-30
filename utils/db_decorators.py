@@ -9,40 +9,43 @@ logger = logging.getLogger(__name__)
 
 
 def db_transaction(method):
-    @wraps(method)
+    """
+    Логирование, замеряет скорость и превращает
+    технические ошибки БД в красивые HTTP-статусы для фронтенда
+    """
+    @wraps(method) # Сохраняет оригинальное имя функции (__name__) и документацию (__doc__). Без неё FastAPI перестал бы понимать, какие роуты за что отвечают
     async def wrapper(*args, **kwargs):
-        # Ищем session в kwargs (надёжнее, чем в args)
-        session = kwargs.get("session")
+        session = kwargs.get("session")   # Ищем session в kwargs (надёжнее, чем в args)
         if not session or not isinstance(session, AsyncSession):
             raise RuntimeError(
-                f"Method '{method.__name__}' requires 'session' as a keyword argument"
+                f"Метод '{method.__name__}' требует передачи 'session' в качестве именованного аргумента"
             )
 
-        start = time.perf_counter()
+        start = time.perf_counter() # Фиксируем время(высокоточный таймер)
         try:
-            result = await method(*args, **kwargs)
-            duration_ms = (time.perf_counter() - start) * 1000
-            logger.info("✅ %s completed in %.2f ms", method.__name__, duration_ms)
+            result = await method(*args, **kwargs) # Вызываем метод
+            duration_ms = (time.perf_counter() - start) * 1000 # Итог времени выполнения(мсек)
+            logger.info("✅ %s успешно выполнен за %.2f ms", method.__name__, duration_ms)
             return result
-        except IntegrityError as e:
+        except IntegrityError as e: # Ошибка (уникальность, внешние ключи)
             await session.rollback()
 
             logger.warning(
-                "🛑 Integrity error in %s: %s",
+                "🛑 Ошибка целостности %s: %s",
                 method.__name__,
                 e,
-                exc_info=True,
+                exc_info=True,     # Прикрепит к этому сообщению весь стек вызовов (Traceback) 
             )
 
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Constraint violation (e.g., duplicate name)",
-            ) from e
+                detail="Нарушение ограничений базы данных (например, такое имя или email уже существует).",
+            ) from e               # Cохраняет связь с {e}, показывая, какая именно ошибка БД вызвала этот HTTP-ответ
         except SQLAlchemyError as e:
             await session.rollback()
 
             logger.error(
-                "🛑 DB error in %s: %s",
+                "🛑 Ошибка базы данных в %s: %s",
                 method.__name__,
                 e,
                 exc_info=True,
@@ -50,22 +53,21 @@ def db_transaction(method):
             
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database failure",
+                detail="Сбой при работе с базой данных",
             ) from e
-        except HTTPException:
-            # Пробрасываем HTTPException без изменений (чтобы 404 оставался 404)
-            raise
+        except HTTPException:     # Откатываем сессию (чтобы очистить «грязные» объекты),
+            raise                 # а затем пробрасываем ручную ошибку добавленную в методах                   
         except Exception as e:
             await session.rollback()
             logger.critical(
-                "💥 Unexpected error in %s: %s",
+                "💥 Непредвиденная ошибка в %s: %s",
                 method.__name__,
                 e,
                 exc_info=True,
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error",
+                detail="Внутренняя ошибка сервера. Пожалуйста, попробуйте позже.",
             ) from e
 
     return wrapper
