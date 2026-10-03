@@ -76,7 +76,18 @@ async def created_task(client):
     """Создаёт задачу через API и возвращает её данные."""
     response = await client.post(
         "/tasks/",
-        json={"name": "Test Task", "description": "Test Description"},
+        json={"title": "Test Task", "description": "Test Description", "priority": 3},
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest_asyncio.fixture
+async def created_user(client):
+    """Создаёт пользователя через API и возвращает его данные."""
+    response = await client.post(
+        "/users/",
+        json={"name": "Test User", "email": "test@example.com"},
     )
     assert response.status_code == 201
     return response.json()

@@ -56,10 +56,13 @@ python -m pytest -m "integration"
 
 # По файлу
 .\venv\Scripts\python.exe -m pytest tests/unit/test_schemas.py
+.\venv\Scripts\python.exe -m pytest tests/unit/test_user_schemas.py
 .\venv\Scripts\python.exe -m pytest tests/unit/test_repository.py
+.\venv\Scripts\python.exe -m pytest tests/unit/test_user_repository.py
 .\venv\Scripts\python.exe -m pytest tests/unit/test_db_decorators.py
 .\venv\Scripts\python.exe -m pytest tests/integration/test_api_health.py
 .\venv\Scripts\python.exe -m pytest tests/integration/test_api_tasks.py
+.\venv\Scripts\python.exe -m pytest tests/integration/test_api_users.py
 .\venv\Scripts\python.exe -m pytest tests/integration/test_api_errors.py
 
 # По директории

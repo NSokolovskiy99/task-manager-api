@@ -26,7 +26,7 @@ def mock_session():
 def sample_task_data():
     """Базовые данные для создания задачи."""
     from schemas.task import STaskAdd
-    return STaskAdd(name="Test Task", description="Test Description")
+    return STaskAdd(title="Test Task", description="Test Description", priority=3)
 
 
 @pytest.fixture
@@ -35,7 +35,28 @@ def sample_task_model():
     from models.tasks import TaskModel
     task = TaskModel()
     task.id = 1
-    task.name = "Test Task"
+    task.title = "Test Task"
     task.description = "Test Description"
     task.is_completed = False
+    task.priority = 3
+    task.user_id = None
     return task
+
+
+@pytest.fixture
+def sample_user_data():
+    """Базовые данные для создания пользователя."""
+    from schemas.user import SUserAdd
+    return SUserAdd(name="Test User", email="test@example.com")
+
+
+@pytest.fixture
+def sample_user_model():
+    """Базовая модель пользователя."""
+    from models.users import UserModel
+    user = UserModel()
+    user.id = 1
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.is_active = True
+    return user

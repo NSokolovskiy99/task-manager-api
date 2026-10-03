@@ -1,5 +1,3 @@
-import asyncio
-import sys
 from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends
@@ -11,11 +9,6 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 
 from core.config import settings
-
-# psycopg (async-драйвер PostgreSQL) не работает с ProactorEventLoop на Windows.
-# Переключаем политику на SelectorEventLoop (совместимо с psycopg и aiosqlite).
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # 1. Выбор URL в зависимости от режима
 if settings.DATABASE_MODE == "postgres":

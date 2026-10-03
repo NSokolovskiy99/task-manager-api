@@ -1,10 +1,11 @@
 """
-Unit-тесты для Pydantic-схем (schemas/task.py).
+Unit-тесты для Pydantic-схем задач (schemas/task.py).
 
 Проверяем:
-- Валидацию полей (min_length, max_length)
+- Валидацию полей (min_length, max_length, ge, le)
 - Значения по умолчанию
-- Запрет лишних полей (extra="forbid")
+- Обязательность поля priority
+- Запрет лишних полей (extra="forbid") для PATCH
 - Преобразование из ORM-модели (from_attributes)
 """
 import pytest
@@ -27,51 +28,81 @@ class TestSTaskAdd:
         Act: создаём STaskAdd
         Assert: все поля установлены корректно
         """
-        data = {"name": "Valid Task", "description": "Valid description"}
+        data = {"title": "Valid Task", "description": "Valid description", "priority": 3}
         task = STaskAdd(**data)
-        assert task.name == "Valid Task"
+        assert task.title == "Valid Task"
         assert task.description == "Valid description"
+        assert task.priority == 3
         assert task.is_completed is False
+        assert task.user_id is None
 
     def test_minimal_data(self):
         """
-        Arrange: только обязательное поле name
+        Arrange: только обязательные поля title и priority
         Act: создаём STaskAdd
-        Assert: description is None, is_completed is False
+        Assert: description is None, is_completed is False, user_id is None
         """
-        task = STaskAdd(name="Minimal")
-        assert task.name == "Minimal"
+        task = STaskAdd(title="Minimal", priority=1)
+        assert task.title == "Minimal"
         assert task.description is None
         assert task.is_completed is False
+        assert task.user_id is None
 
     def test_with_completed_true(self):
         """
-        Arrange: name + is_completed=True
+        Arrange: title + priority + is_completed=True
         Act: создаём STaskAdd
         Assert: is_completed == True
         """
-        task = STaskAdd(name="Task", is_completed=True)
+        task = STaskAdd(title="Task", priority=2, is_completed=True)
         assert task.is_completed is True
 
-    def test_name_too_short(self):
+    def test_priority_required(self):
         """
-        Arrange: name длиной 2 символа (min_length=3)
+        Arrange: нет обязательного priority
+        Act: создаём STaskAdd
+        Assert: ValidationError (поле priority обязательно)
+        """
+        with pytest.raises(ValidationError):
+            STaskAdd(title="No priority")
+
+    def test_priority_below_range(self):
+        """
+        Arrange: priority=0 (ge=1)
+        Act: создаём STaskAdd
+        Assert: ValidationError
+        """
+        with pytest.raises(ValidationError):
+            STaskAdd(title="Task", priority=0)
+
+    def test_priority_above_range(self):
+        """
+        Arrange: priority=6 (le=5)
+        Act: создаём STaskAdd
+        Assert: ValidationError
+        """
+        with pytest.raises(ValidationError):
+            STaskAdd(title="Task", priority=6)
+
+    def test_title_too_short(self):
+        """
+        Arrange: title длиной 2 символа (min_length=3)
         Act: создаём STaskAdd
         Assert: ValidationError
         """
         with pytest.raises(ValidationError) as exc_info:
-            STaskAdd(name="AB")
+            STaskAdd(title="AB", priority=3)
         errors = exc_info.value.errors()
         assert any("min_length" in str(err) for err in errors)
 
-    def test_name_too_long(self):
+    def test_title_too_long(self):
         """
-        Arrange: name длиной 101 символ (max_length=100)
+        Arrange: title длиной 201 символ (max_length=200)
         Act: создаём STaskAdd
         Assert: ValidationError с ошибкой о max_length
         """
         with pytest.raises(ValidationError) as exc_info:
-            STaskAdd(name="A" * 101)
+            STaskAdd(title="A" * 201, priority=3)
         errors = exc_info.value.errors()
         assert any("max_length" in str(err) for err in errors)
 
@@ -82,20 +113,18 @@ class TestSTaskAdd:
         Assert: ValidationError с ошибкой о max_length
         """
         with pytest.raises(ValidationError) as exc_info:
-            STaskAdd(name="Valid", description="A" * 501)
+            STaskAdd(title="Valid", description="A" * 501, priority=3)
         errors = exc_info.value.errors()
         assert any("max_length" in str(err) for err in errors)
 
-    def test_extra_field_forbidden(self):
+    def test_extra_field_ignored(self):
         """
         Arrange: передаём лишнее поле
         Act: создаём STaskAdd
-        Assert: ValidationError (по умолчанию extra=ignore для BaseModel)
+        Assert: поле unknown_field просто игнорируется (extra=ignore у BaseModel)
         """
-        # STaskAdd наследуется от BaseModel, где extra="ignore" по умолчанию
-        task = STaskAdd(name="Task", unknown_field="value")
-        assert task.name == "Task"
-        # Поле unknown_field просто игнорируется
+        task = STaskAdd(title="Task", priority=3, unknown_field="value")
+        assert task.title == "Task"
 
 
 # ============================================================
@@ -112,18 +141,20 @@ class TestSTaskPatch:
         Assert: все поля None
         """
         patch = STaskPatch()
-        assert patch.name is None
+        assert patch.title is None
         assert patch.description is None
         assert patch.is_completed is None
+        assert patch.priority is None
+        assert patch.user_id is None
 
-    def test_partial_name_only(self):
+    def test_partial_title_only(self):
         """
-        Arrange: только name
+        Arrange: только title
         Act: создаём STaskPatch
-        Assert: name установлен, остальные None
+        Assert: title установлен, остальные None
         """
-        patch = STaskPatch(name="Updated Name")
-        assert patch.name == "Updated Name"
+        patch = STaskPatch(title="Updated Title")
+        assert patch.title == "Updated Title"
         assert patch.description is None
         assert patch.is_completed is None
 
@@ -134,7 +165,7 @@ class TestSTaskPatch:
         Assert: is_completed установлен, остальные None
         """
         patch = STaskPatch(is_completed=True)
-        assert patch.name is None
+        assert patch.title is None
         assert patch.description is None
         assert patch.is_completed is True
 
@@ -145,29 +176,29 @@ class TestSTaskPatch:
         Assert: ValidationError (extra="forbid")
         """
         with pytest.raises(ValidationError) as exc_info:
-            STaskPatch(name="Task", extra_field="value")
+            STaskPatch(title="Task", extra_field="value")
         errors = exc_info.value.errors()
         assert any("extra" in str(err).lower() for err in errors)
 
-    def test_name_too_short(self):
+    def test_title_too_short(self):
         """
-        Arrange: name длиной 2 символа (min_length=3)
+        Arrange: title длиной 2 символа (min_length=3)
         Act: создаём STaskPatch
         Assert: ValidationError с ошибкой о min_length
         """
         with pytest.raises(ValidationError) as exc_info:
-            STaskPatch(name="AB")
+            STaskPatch(title="AB")
         errors = exc_info.value.errors()
         assert any("min_length" in str(err) for err in errors)
 
-    def test_name_too_long(self):
+    def test_title_too_long(self):
         """
-        Arrange: name длиной 101 символ (max_length=100)
+        Arrange: title длиной 201 символ (max_length=200)
         Act: создаём STaskPatch
         Assert: ValidationError с ошибкой о max_length
         """
         with pytest.raises(ValidationError) as exc_info:
-            STaskPatch(name="A" * 101)
+            STaskPatch(title="A" * 201)
         errors = exc_info.value.errors()
         assert any("max_length" in str(err) for err in errors)
 
@@ -179,40 +210,46 @@ class TestSTaskPatch:
 class TestSTask:
     """Тесты для схемы ответа API."""
 
+    def _make_task_model(self, task_id=1):
+        """Вспомогательный метод: создаёт TaskModel с заполненными полями."""
+        from models.tasks import TaskModel
+        task_model = TaskModel()
+        task_model.id = task_id
+        task_model.title = "Test"
+        task_model.description = "Desc"
+        task_model.is_completed = True
+        task_model.priority = 3
+        task_model.user_id = None
+        return task_model
+
     def test_from_attributes(self):
         """
         Arrange: ORM-модель TaskModel
         Act: STask.model_validate(task_model)
         Assert: все поля совпадают
         """
-        from models.tasks import TaskModel
-        task_model = TaskModel()
-        task_model.id = 1
-        task_model.name = "Test"
-        task_model.description = "Desc"
-        task_model.is_completed = True
+        task_model = self._make_task_model()
 
         task = STask.model_validate(task_model)
         assert task.id == 1
-        assert task.name == "Test"
+        assert task.title == "Test"
         assert task.description == "Desc"
         assert task.is_completed is True
+        assert task.priority == 3
+        assert task.user_id is None
 
     def test_from_attributes_null_description(self):
         """
-        Arrange: ORM-модель с description=None
+        Arrange: ORM-модель с description=None и user_id
         Act: STask.model_validate(task_model)
-        Assert: description is None
+        Assert: description is None, user_id пробрасывается
         """
-        from models.tasks import TaskModel
-        task_model = TaskModel()
-        task_model.id = 2
-        task_model.name = "No Desc"
+        task_model = self._make_task_model(task_id=2)
         task_model.description = None
-        task_model.is_completed = False
+        task_model.user_id = 7
 
         task = STask.model_validate(task_model)
         assert task.id == 2
-        assert task.name == "No Desc"
         assert task.description is None
-        assert task.is_completed is False
+        assert task.user_id == 7
+        assert task.is_completed is True
