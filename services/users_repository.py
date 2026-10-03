@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
@@ -15,7 +15,7 @@ class UserRepository:
     @classmethod
     @db_transaction
     async def add_one(cls, data: SUserAdd, session: AsyncSession) -> UserModel:
-        logger.info("DEBUG: Получены данные пользователя = %s", data.model_dump())
+        logger.debug("DEBUG: Получены данные пользователя = %s", data.model_dump())
 
         existing_user = await cls.find_by_email(data.email, session=session)
         if existing_user:

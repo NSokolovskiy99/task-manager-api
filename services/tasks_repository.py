@@ -14,7 +14,7 @@ class TaskRepository:
     @classmethod
     @db_transaction
     async def add_one(cls, data: STaskAdd, session: AsyncSession) -> TaskModel:
-        logger.info("DEBUG: Получена задача пользователя = %s", data.model_dump())
+        logger.debug("DEBUG: Получена задача пользователя = %s", data.model_dump())
         task = TaskModel(
             title=data.title,
             description=data.description,
@@ -159,6 +159,6 @@ class TaskRepository:
         """
         Найти не назначенные задачи.
         """
-        query = select(TaskModel).where(TaskModel.user_id == None).offset(skip).limit(limit)
+        query = select(TaskModel).where(TaskModel.user_id.is_(None)).offset(skip).limit(limit)
         result = await session.execute(query)
         return result.scalars().all()    

@@ -17,11 +17,17 @@ async def get_tasks(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     is_completed: bool | None = Query(None),
+    user_id: int | None = Query(None),
 ):
     tasks = await TaskRepository.find_all(
-        session, skip=skip, limit=limit, is_completed=is_completed
+        session, skip=skip, limit=limit, is_completed=is_completed, user_id=user_id
     )
     return tasks
+
+
+@router.get("/unassigned", response_model=list[STask])
+async def get_unassigned_tasks(session: SessionDep, skip: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100)):
+    return await TaskRepository.find_unassigned(session=session, skip=skip, limit=limit)
 
 
 @router.get("/{task_id}", response_model=STask)
@@ -41,4 +47,4 @@ async def patch_task(task_id: int, data: STaskPatch, session: SessionDep):
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(task_id: int, session: SessionDep):
-    await TaskRepository.delete(task_id=task_id, session=session)
+    await TaskRepository.delete(task_id=task_id, session=session)    

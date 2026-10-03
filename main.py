@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from database import engine
-from routers import tasks
-import models.tasks
+from routers import tasks, users
+import models
 
 import logging
 
@@ -26,3 +26,4 @@ async def health():
 
 
 app.include_router(tasks.router)
+app.include_router(users.router)

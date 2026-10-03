@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from schemas.task import STask
 
 
 class SUserAdd(BaseModel):
@@ -19,4 +20,10 @@ class SUser(BaseModel):
 class SUserPatch(BaseModel, extra="forbid"):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     email: EmailStr | None = None
-    is_active: bool | None = None        
+    is_active: bool | None = None
+
+
+class SUserWithTasks(SUser):
+    tasks: list[STask] = []
+
+    model_config = ConfigDict(from_attributes=True)            
