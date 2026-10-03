@@ -1,4 +1,5 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from models.tasks import TaskModel
@@ -14,7 +15,16 @@ class UserRepository:
     @classmethod
     @db_transaction
     async def add_one(cls, data: SUserAdd, session: AsyncSession) -> UserModel:
-        logger.info("DEBUG: received data = %s", data.model_dump())
+        logger.info("DEBUG: Получены данные пользователя = %s", data.model_dump())
+
+        existing_user = await cls.find_by_email(data.email, session=session)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Пользователь с email '{data.email}' уже зарегистрирован в системе.",
+            )
+
+        
         user = UserModel(
             name=data.name,
             email=data.email,
@@ -25,7 +35,7 @@ class UserRepository:
         await session.commit()
         await session.refresh(user)
 
-        logger.info("SUCCESS: Task created with id=%s", user.id)
+        logger.info("SUCCESS: Пользователь создан с id=%s", user.id)
         return user
 
     @classmethod
@@ -74,12 +84,42 @@ class UserRepository:
 
         user = await session.get(UserModel, user_id)
         if not user:
-            logger.debug("User with id=%d not found", user_id)
+            logger.debug("Пользователь с id=%d не найден", user_id)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Task with id {user_id} not found",
+                detail=f"Пользователь с id {user_id} Не найден",
             )
         return user
+
+    @classmethod
+    async def find_by_email(cls, email: str, session: AsyncSession) -> UserModel | None:
+        """
+        Найти пользователя по email.
+        """
+        query = select(UserModel).where(UserModel.email == email)
+        result = await session.execute(query)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def find_one_with_tasks(cls, user_id: int, session: AsyncSession) -> UserModel:
+        """
+        Найти пользователя по ID со списком его задач.
+        """
+        query = (
+            select(UserModel)
+            .where(UserModel.id == user_id)
+            .options(selectinload(UserModel.tasks))
+        )
+        result = await session.execute(query)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Пользователь с id {user_id} не найден",
+            )
+        return user
+    
 
     @classmethod
     @db_transaction
@@ -96,7 +136,7 @@ class UserRepository:
         await session.commit()
         await session.refresh(user)
 
-        logger.info("SUCCESS: Task id=%s updated", user.id)
+        logger.info("SUCCESS: Данные пользователя id=%s обновлены", user.id)
         return user
 
     @classmethod
@@ -114,7 +154,7 @@ class UserRepository:
         await session.refresh(user)
 
         logger.info(
-            "SUCCESS: Task id=%s patched with fields: %s",
+            "SUCCESS: Пользователь id=%s частично обновлен. Измененные поля: %s",
             user.id,
             list(update_data.keys()),
         )
@@ -127,4 +167,4 @@ class UserRepository:
         await session.delete(user)
         await session.commit()
 
-        logger.info("SUCCESS: Task id=%s deleted", user_id)
+        logger.info("SUCCESS: Пользователь id=%s удален, его задачи теперь без исполнителя", user_id)

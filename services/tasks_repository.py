@@ -14,7 +14,7 @@ class TaskRepository:
     @classmethod
     @db_transaction
     async def add_one(cls, data: STaskAdd, session: AsyncSession) -> TaskModel:
-        logger.info("DEBUG: received data = %s", data.model_dump())
+        logger.info("DEBUG: Получена задача пользователя = %s", data.model_dump())
         task = TaskModel(
             title=data.title,
             description=data.description,
@@ -28,14 +28,14 @@ class TaskRepository:
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User with id {data.user_id} not found",
+                    detail=f"Пользоватеель с id {data.user_id} не найден",
                 )
 
         session.add(task)
         await session.commit()
         await session.refresh(task)
 
-        logger.info("SUCCESS: Task created with id=%s", task.id)
+        logger.info("SUCCESS: Задача создана с  id=%s", task.id)
         return task
 
     @classmethod
@@ -45,10 +45,14 @@ class TaskRepository:
         skip: int = 0,
         limit: int = 20,
         is_completed: bool | None = None,
+        user_id: int | None = None,
     ):
         query = select(TaskModel).offset(skip).limit(limit)
         if is_completed is not None:
             query = query.where(TaskModel.is_completed == is_completed)
+
+        if user_id is not None:
+            query = query.where(TaskModel.user_id == user_id)    
 
         result = await session.execute(query)
         tasks = result.scalars().all()
@@ -62,10 +66,10 @@ class TaskRepository:
 
         task = await session.get(TaskModel, task_id)
         if not task:
-            logger.debug("Task with id=%d not found", task_id)
+            logger.debug("Задача с id=%d не найдена", task_id)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Task with id {task_id} not found",
+                detail=f"Задача с id {task_id} не найдена",
             )
         return task
 
@@ -82,7 +86,7 @@ class TaskRepository:
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User with id {data.user_id} not found",
+                    detail=f"Пользователь с id {data.user_id} не найден",
                 )
 
         task.title = data.title
@@ -94,7 +98,7 @@ class TaskRepository:
         await session.commit()
         await session.refresh(task)
 
-        logger.info("SUCCESS: Task id=%s updated", task.id)
+        logger.info("SUCCESS: Задача с id=%s полностью обновлена", task.id)
         return task
 
     @classmethod
@@ -112,7 +116,7 @@ class TaskRepository:
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User with id {update_data['user_id']} not found",
+                    detail=f"Пользователь с id {update_data['user_id']} не найден",
                 )
 
         # Поля, которым в БД разрешён NULL (nullable=True в модели)
@@ -124,7 +128,7 @@ class TaskRepository:
                 # лучше сразу отдать 422, чем 409 от IntegrityError
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=f"Field '{key}' cannot be set to null",
+                    detail=f"Поле '{key}' не может быть пустым (null)",
                 )
             setattr(task, key, value)
 
@@ -132,7 +136,7 @@ class TaskRepository:
         await session.refresh(task)
 
         logger.info(
-            "SUCCESS: Task id=%s patched with fields: %s",
+            "SUCCESS: Задача id=%s частично обновлена. Измененные поля: %s",
             task.id,
             list(update_data.keys()),
         )
@@ -145,4 +149,16 @@ class TaskRepository:
         await session.delete(task)
         await session.commit()
 
-        logger.info("SUCCESS: Task id=%s deleted", task_id)
+        logger.info("SUCCESS: Задача id=%s удалена", task_id)
+
+
+    @classmethod
+    async def find_unassigned(
+        cls, session: AsyncSession, skip: int = 0, limit: int = 20
+    ):
+        """
+        Найти не назначенные задачи.
+        """
+        query = select(TaskModel).where(TaskModel.user_id == None).offset(skip).limit(limit)
+        result = await session.execute(query)
+        return result.scalars().all()    
