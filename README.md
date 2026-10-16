@@ -60,51 +60,12 @@
 
 ## 🚀 Быстрый старт
 
-### Вариант 1: Docker Compose (рекомендуется)
+docker compose --profile docker-db up -d --build
 
-Требуется запущенный PostgreSQL на хосте (или в отдельном контейнере).
+## Остановка и удаление контейнера
 
-```bash
-# 1. Создать БД (один раз)
-# CREATE DATABASE task_manager;
+docker compose --profile docker-db down
 
-# 2. Поднять API
-docker compose up -d --build
-
-# 3. Применить миграции
-docker compose exec api python -m alembic upgrade head
-```
-
-Приложение будет доступно на **http://localhost:8000**.
-
-### Вариант 2: Локально (venv)
-
-```bash
-python -m venv venv
-venv\Scripts\activate              # Windows
-# source venv/bin/activate         # Linux/macOS
-
-pip install -r requirements.txt
-
-copy .env.example .env             # и при необходимости поправь настройки БД
-# cp .env.example .env             # Linux/macOS
-
-venv\Scripts\python.exe -m alembic upgrade head
-uvicorn main:app --reload
-```
-
-### Конфигурация (.env)
-
-| Переменная | По умолчанию | Описание |
-|---|---|---|
-| `DATABASE_MODE` | `sqlite` | `sqlite` или `postgres` |
-| `DB_HOST` | `localhost` | Хост PostgreSQL |
-| `DB_PORT` | `5432` | Порт |
-| `DB_USER` | `postgres` | Пользователь |
-| `DB_PASSWORD` | — | Пароль |
-| `DB_NAME` | `task_manager` | Имя БД |
-
-> ⚠️ `.env` с реальными значениями не коммитится в git. Для репозитория предназначен шаблон [`.env.example`](.env.example).
 
 ---
 
@@ -171,16 +132,8 @@ curl "http://localhost:8000/users/?has_completed_tasks=true"
 
 ```bash
 # Все тесты (unit + integration)
-venv\Scripts\python.exe -m pytest
 
-# Только unit / только integration
-venv\Scripts\python.exe -m pytest -m "unit"
-venv\Scripts\python.exe -m pytest -m "integration"
-```
-
-- **144 теста** (89 unit + 55 integration), покрытие **99%**.
-- Интеграционные тесты используют in-memory SQLite и переопределяют зависимость `get_db`.
-- Подробнее: [tests/TEST_COMMANDS.md](tests/TEST_COMMANDS.md).
+pytest tests -v
 
 ---
 
@@ -203,8 +156,5 @@ venv\Scripts\python.exe -m alembic check
 ## 🗺 Дорожная карта (идеи для развития)
 
 - Аутентификация и авторизация (JWT/OAuth2)
-- Soft-delete и аудит изменений
-- Фильтры по приоритету/датам, сортировки
-- Пагинация через курсоры
 - CI/CD (GitHub Actions) с прогоном тестов и линтеров
 - Structured logging и метрики (Prometheus)

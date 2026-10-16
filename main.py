@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from database import engine
-from routers import tasks, users
-import models
+from routers import tasks, users 
 
 import logging
 

@@ -49,4 +49,3 @@ class TaskModel(Model):
             f"is_completed={self.is_completed!r}, "
             f"priority={self.priority!r})"
         )
-    
