@@ -60,12 +60,17 @@
 
 ## 🚀 Быстрый старт
 
+```bash
 docker compose --profile docker-db up -d --build
+```
+
+---
 
 ## Остановка и удаление контейнера
 
+```bash
 docker compose --profile docker-db down
-
+```
 
 ---
 
@@ -134,6 +139,7 @@ curl "http://localhost:8000/users/?has_completed_tasks=true"
 # Все тесты (unit + integration)
 
 pytest tests -v
+```
 
 ---
 
@@ -141,14 +147,14 @@ pytest tests -v
 
 ```bash
 # Создать новую миграцию по изменениям моделей
-venv\Scripts\python.exe -m alembic revision --autogenerate -m "описание"
+alembic revision --autogenerate -m "описание"
 
 # Применить / откатить
-venv\Scripts\python.exe -m alembic upgrade head
-venv\Scripts\python.exe -m alembic downgrade -1
+alembic upgrade head
+alembic downgrade -1
 
 # Проверить синхронизацию схемы БД с моделями
-venv\Scripts\python.exe -m alembic check
+alembic check
 ```
 
 ---
